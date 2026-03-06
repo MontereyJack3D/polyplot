@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# build outputs
+.next/
+dist/
+.turbo/
+
+# env files
+.env
+.env.*
+!.env.example
+apps/web/.env.local
+apps/web/.env.*
+
+# vercel local metadata
+.vercel/
+apps/web/.vercel/
+
+# logs
+*.log
+pnpm-debug.log*
+
+# ts cache
+*.tsbuildinfo
+
+# OS
+.DS_Store

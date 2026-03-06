@@ -1,0 +1,20 @@
+{
+  "name": "@polyplot/connectors",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@polyplot/core": "workspace:*",
+    "p-queue": "^8"
+  },
+  "devDependencies": {
+    "typescript": "^5.5",
+    "vitest": "^2"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}

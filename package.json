@@ -1,0 +1,21 @@
+{
+  "name": "polyplot",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "db:push": "cd supabase && npx supabase db push",
+    "db:reset": "cd supabase && npx supabase db reset",
+    "db:seed": "cd supabase && npx supabase db seed"
+  },
+  "devDependencies": {
+    "turbo": "^2",
+    "typescript": "^5.5"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
