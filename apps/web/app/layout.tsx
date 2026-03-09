@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
+import { Analytics } from '@vercel/analytics/next';
 
 import './globals.css';
 import { QueryProvider } from '@/lib/providers';
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <Toaster theme="dark" richColors />
         </QueryProvider>
+        <Analytics />
       </body>
     </html>
   );
