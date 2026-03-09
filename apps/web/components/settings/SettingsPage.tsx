@@ -4,25 +4,22 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import { useEffect, useMemo, useState } from 'react';
 
 import { ErrorState } from '@/components/shared/page-states';
-import { useAccess } from '@/lib/hooks/use-access';
+import { useNFTGate } from '@/lib/hooks/use-nft-gate';
 import { useSettingsProfile } from '@/lib/hooks/use-markets';
 import { useFilterStore } from '@/lib/stores/filter-store';
 
-import { VenueConnectionModal } from './VenueConnectionModal';
 import { VenueConnection } from './VenueConnection';
 
 export function SettingsPage() {
   const settings = useSettingsProfile();
-  const access = useAccess();
+  const gate = useNFTGate();
   const { mode, setMode } = useFilterStore();
 
   const [displayName, setDisplayName] = useState('');
   const [privacyMode, setPrivacyMode] = useState<'private' | 'public'>('private');
   const [defaultTimeframe, setDefaultTimeframe] = useState('30D');
   const [defaultVenueView, setDefaultVenueView] = useState<'combined' | 'polymarket' | 'kalshi'>('combined');
-  const [accessCode, setAccessCode] = useState('');
   const [saving, setSaving] = useState(false);
-  const [connectOpen, setConnectOpen] = useState(false);
 
   const payload = settings.data as
     | {
@@ -35,7 +32,6 @@ export function SettingsPage() {
           settings_json?: Record<string, unknown>;
         };
         venues: Array<any>;
-        email: string;
       }
     | undefined;
 
@@ -96,16 +92,6 @@ export function SettingsPage() {
     settings.refetch();
   }
 
-  async function redeemAccessCode() {
-    await fetch('/api/access/code/redeem', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ code: accessCode }),
-    });
-    setAccessCode('');
-    access.refetch();
-  }
-
   return (
     <div className="space-y-6">
       <section className="bg-card border border-border rounded-xl p-5">
@@ -117,8 +103,8 @@ export function SettingsPage() {
           <Field label="Handle">
             <input value={payload.profile.handle} readOnly className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm w-full opacity-70" />
           </Field>
-          <Field label="Email">
-            <input value={payload.email} readOnly className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm w-full opacity-70" />
+          <Field label="Wallet Address">
+            <input value={gate.address || '—'} readOnly className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm w-full opacity-70 font-mono" />
           </Field>
           <Field label="Make my profile public">
             <select value={privacyMode} onChange={(e) => setPrivacyMode(e.target.value as 'private' | 'public')} className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm w-full">
@@ -132,7 +118,10 @@ export function SettingsPage() {
       <section className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-medium">Connected Accounts</h2>
-          <button onClick={() => setConnectOpen(true)} className="bg-primary text-primary-foreground font-medium py-2 px-3 rounded-lg text-xs">
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('polyplot:open-onboarding'))}
+            className="bg-primary text-primary-foreground font-medium py-2 px-3 rounded-lg text-xs"
+          >
             Connect New Account
           </button>
         </div>
@@ -181,27 +170,13 @@ export function SettingsPage() {
       <section className="bg-card border border-border rounded-xl p-5">
         <h2 className="text-sm font-medium">Access</h2>
         <p className="text-sm text-muted-foreground mt-2">
-          Status: {access.data?.eligible ? `Eligible (${access.data.method})` : 'No access'}{' '}
-          {access.data?.expiresAt ? `· Expires ${new Date(access.data.expiresAt).toLocaleDateString()}` : ''}
+          Status: {gate.hasAccess ? 'NFT holder (granted)' : gate.isConnected ? 'Wallet connected, NFT required' : 'Wallet not connected'}
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <input value={accessCode} onChange={(e) => setAccessCode(e.target.value)} placeholder="Enter additional access code" className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm min-w-[260px]" />
-          <button onClick={redeemAccessCode} className="bg-primary text-primary-foreground font-medium py-2.5 px-4 rounded-lg">Redeem</button>
-        </div>
       </section>
 
       <button onClick={saveProfile} disabled={saving} className="bg-primary text-primary-foreground font-medium py-2.5 px-4 rounded-lg w-full md:w-auto disabled:opacity-50">
         {saving ? 'Saving...' : 'Save Settings'}
       </button>
-
-      <VenueConnectionModal
-        isOpen={connectOpen}
-        onClose={() => setConnectOpen(false)}
-        onConnected={() => {
-          settings.refetch();
-          setConnectOpen(false);
-        }}
-      />
     </div>
   );
 }
