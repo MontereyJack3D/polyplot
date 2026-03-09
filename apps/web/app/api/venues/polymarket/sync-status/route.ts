@@ -33,21 +33,27 @@ export async function GET() {
       .single(),
   ]);
 
+  const isConnected = account.connection_status === 'connected';
+  const hasSyncedAtLeastOnce = !!account.last_sync_at;
+  const tradesCount = trades.count || 0;
+  const positionsCount = positions.count || 0;
+  const resolvedCount = rating.data?.resolved_decision_count || 0;
+
   return NextResponse.json({
     status: account.connection_status,
     lastSyncAt: account.last_sync_at,
     progress: {
-      trades: trades.count || 0,
-      positions: positions.count || 0,
+      trades: tradesCount,
+      positions: positionsCount,
       decisions: decisions.count || 0,
       edgeScore: rating.data?.edge_score || 50,
-      resolvedDecisions: rating.data?.resolved_decision_count || 0,
+      resolvedDecisions: resolvedCount,
     },
     stages: {
       marketsDiscovered: true,
-      tradesImported: (trades.count || 0) > 0,
-      positionsBuilt: (positions.count || 0) > 0,
-      edgeScoreComputed: (rating.data?.resolved_decision_count || 0) > 0,
+      tradesImported: tradesCount > 0 || isConnected || hasSyncedAtLeastOnce,
+      positionsBuilt: positionsCount > 0 || isConnected || hasSyncedAtLeastOnce,
+      edgeScoreComputed: resolvedCount > 0 || isConnected || hasSyncedAtLeastOnce,
     },
   });
 }

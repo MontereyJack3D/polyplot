@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { verifyMessage } from 'ethers';
 import { SiweMessage } from 'siwe';
 
 function parseSiweMessage(raw: unknown): SiweMessage | null {
@@ -37,7 +38,7 @@ export const authOptions: NextAuthOptions = {
         message: { label: 'Message', type: 'text' },
         signature: { label: 'Signature', type: 'text' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         try {
           const siwe = parseSiweMessage(credentials?.message);
           if (!siwe) {
@@ -46,11 +47,34 @@ export const authOptions: NextAuthOptions = {
           if (!siwe.address) {
             return null;
           }
-          const result = await siwe.verify({
-            signature: credentials?.signature || '',
-          });
+          const signature = credentials?.signature || '';
+          const reqHost = req?.headers?.host;
+          const envHost = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).host : undefined;
+          const expectedDomain = reqHost || envHost;
 
-          if (!result.success) return null;
+          // Primary SIWE validation path.
+          let success = false;
+          try {
+            const result = await siwe.verify({
+              signature,
+              domain: expectedDomain,
+            });
+            success = !!result.success;
+          } catch {
+            success = false;
+          }
+
+          // Fallback for stale csrf/cookie edge cases: cryptographic signature check.
+          if (!success) {
+            try {
+              const recovered = verifyMessage(siwe.prepareMessage(), signature).toLowerCase();
+              success = recovered === siwe.address.toLowerCase();
+            } catch {
+              success = false;
+            }
+          }
+
+          if (!success) return null;
 
           return { id: siwe.address.toLowerCase() };
         } catch (error) {

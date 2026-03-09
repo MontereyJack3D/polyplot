@@ -25,8 +25,8 @@ const config = getDefaultConfig({
   projectId: walletConnectProjectId,
   chains: [mainnet, polygon],
   ssr: false,
-  // Important for desktop UX: discover injected wallets (Rabby, MetaMask, etc.).
-  multiInjectedProviderDiscovery: true,
+  // Keep this off to avoid provider redefinition conflicts in some extension stacks.
+  multiInjectedProviderDiscovery: false,
   wallets: [
     {
       groupName: 'Recommended',

@@ -1,19 +1,45 @@
 'use client';
 
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { LogOut, PlugZap, Wallet2 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { useEffect, useRef, useState } from 'react';
 import { useDisconnect } from 'wagmi';
 
 export function PolyPlotConnectButton({ compact = false }: { compact?: boolean }) {
   const { disconnect } = useDisconnect();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleOutside = (event: MouseEvent) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+
+    window.addEventListener('mousedown', handleOutside);
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [open]);
 
   const handleOpenOnboarding = () => {
+    setOpen(false);
     window.dispatchEvent(new CustomEvent('polyplot:open-onboarding'));
   };
 
   const handleLogout = async () => {
+    setOpen(false);
     disconnect();
     await signOut({ callbackUrl: '/app/leaderboard' });
   };
@@ -25,6 +51,8 @@ export function PolyPlotConnectButton({ compact = false }: { compact?: boolean }
 
         return (
           <div
+            ref={menuRef}
+            className="relative"
             {...(!mounted && {
               'aria-hidden': true,
               style: { opacity: 0, pointerEvents: 'none', userSelect: 'none' },
@@ -51,44 +79,45 @@ export function PolyPlotConnectButton({ compact = false }: { compact?: boolean }
                 {compact ? 'Connect' : 'Connect Wallet'}
               </button>
             ) : (
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <button className="flex items-center gap-2.5 bg-secondary hover:bg-accent border border-border rounded-lg px-3 py-2 transition-colors">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#00d4aa] to-[#6366f1]" />
-                    <span className="text-foreground text-[13px] font-mono">{account.displayName}</span>
-                  </button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    align="end"
-                    sideOffset={8}
-                    className="z-50 min-w-[220px] rounded-lg border border-border bg-card p-1.5 shadow-xl"
-                  >
-                    <DropdownMenu.Item
-                      onSelect={handleOpenOnboarding}
-                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground outline-none cursor-pointer hover:bg-secondary"
+              <>
+                <button
+                  onClick={() => setOpen((value) => !value)}
+                  className="flex items-center gap-2.5 bg-secondary hover:bg-accent border border-border rounded-lg px-3 py-2 transition-colors"
+                >
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#00d4aa] to-[#6366f1]" />
+                  <span className="text-foreground text-[13px] font-mono leading-none">{account.displayName}</span>
+                </button>
+
+                {open ? (
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-[120] min-w-[250px] rounded-xl border border-border bg-[#12141a] p-1.5 shadow-2xl">
+                    <button
+                      onClick={handleOpenOnboarding}
+                      className="w-full flex items-center gap-2 rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-secondary text-left"
                     >
                       <PlugZap size={14} className="text-primary" />
-                      Connect Prediction Markets
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      onSelect={openAccountModal}
-                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground outline-none cursor-pointer hover:bg-secondary"
+                      <span className="whitespace-nowrap">Connect Prediction Markets</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setOpen(false);
+                        openAccountModal();
+                      }}
+                      className="w-full flex items-center gap-2 rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-secondary text-left"
                     >
                       <Wallet2 size={14} className="text-primary" />
-                      Wallet Details
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Separator className="my-1 h-px bg-border" />
-                    <DropdownMenu.Item
-                      onSelect={handleLogout}
-                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground outline-none cursor-pointer hover:bg-secondary"
+                      <span className="whitespace-nowrap">Wallet Details</span>
+                    </button>
+                    <div className="my-1 h-px bg-border" />
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 rounded-md px-3 py-2.5 text-sm text-foreground hover:bg-secondary text-left"
                     >
                       <LogOut size={14} className="text-muted-foreground" />
-                      Log out
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
+                      <span className="whitespace-nowrap">Log out</span>
+                    </button>
+                  </div>
+                ) : null}
+              </>
             )}
           </div>
         );
