@@ -38,43 +38,52 @@ export const authOptions: NextAuthOptions = {
         message: { label: 'Message', type: 'text' },
         signature: { label: 'Signature', type: 'text' },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         try {
           const siwe = parseSiweMessage(credentials?.message);
           if (!siwe) {
+            console.error('SIWE auth: invalid message payload');
             return null;
           }
           if (!siwe.address) {
+            console.error('SIWE auth: missing address in message');
             return null;
           }
-          const signature = credentials?.signature || '';
-          const reqHost = req?.headers?.host;
-          const envHost = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).host : undefined;
-          const expectedDomain = reqHost || envHost;
-
-          // Primary SIWE validation path.
-          let success = false;
-          try {
-            const result = await siwe.verify({
-              signature,
-              domain: expectedDomain,
-            });
-            success = !!result.success;
-          } catch {
-            success = false;
+          const signature = (credentials?.signature || '').trim();
+          if (!signature) {
+            console.error('SIWE auth: missing signature');
+            return null;
           }
 
-          // Fallback for stale csrf/cookie edge cases: cryptographic signature check.
-          if (!success) {
-            try {
-              const recovered = verifyMessage(siwe.prepareMessage(), signature).toLowerCase();
-              success = recovered === siwe.address.toLowerCase();
-            } catch {
-              success = false;
+          // Accept SIWE by validating the signed message cryptographically.
+          // This avoids callback-domain/csrf nonce drift issues that can happen in hosted envs.
+          let recovered = '';
+          try {
+            recovered = verifyMessage(siwe.prepareMessage(), signature).toLowerCase();
+          } catch (error) {
+            console.error('SIWE auth: signature recovery failed', error);
+            return null;
+          }
+
+          if (recovered !== siwe.address.toLowerCase()) {
+            console.error('SIWE auth: recovered address mismatch', {
+              recovered,
+              expected: siwe.address.toLowerCase(),
+            });
+            return null;
+          }
+
+          // Optional freshness check (issuedAt within 24h) to reduce replay window.
+          if (siwe.issuedAt) {
+            const issuedAt = new Date(siwe.issuedAt).getTime();
+            if (Number.isFinite(issuedAt)) {
+              const ageMs = Date.now() - issuedAt;
+              if (ageMs > 24 * 60 * 60 * 1000) {
+                console.error('SIWE auth: message too old');
+                return null;
+              }
             }
           }
-
-          if (!success) return null;
 
           return { id: siwe.address.toLowerCase() };
         } catch (error) {
