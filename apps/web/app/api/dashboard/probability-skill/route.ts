@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import type { ProbabilitySkillResponse } from '@polyplot/core';
 
+import { requireSessionUser } from '@/lib/auth/session-user';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let sessionUser: Awaited<ReturnType<typeof requireSessionUser>>;
+  try {
+    sessionUser = await requireSessionUser();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = sessionUser.user.user_id;
 
   const { searchParams } = new URL(request.url);
   const timeframe = searchParams.get('timeframe') || 'ALL';
@@ -18,7 +22,7 @@ export async function GET(request: NextRequest) {
   const { data } = await supabase
     .from('user_probability_band_snapshots')
     .select('probability_band, trade_count, win_rate, roi, edge_contribution, log_loss_avg, calibration_error')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('timeframe_key', timeframe)
     .eq('venue_scope', venue)
     .order('probability_band', { ascending: true });

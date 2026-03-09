@@ -1,6 +1,9 @@
 'use client';
 
 import { Bell, Menu, Wallet } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+
+import { PolyPlotConnectButton } from './ConnectButton';
 
 interface HeaderProps {
   edgeScore: number;
@@ -25,6 +28,9 @@ export function Header({
   onOpenWallet,
   onToggleSidebar,
 }: HeaderProps) {
+  const { status } = useSession();
+  const isConnected = status === 'authenticated';
+
   return (
     <header className="h-16 border-b border-border bg-background px-5 flex items-center justify-between">
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -67,13 +73,17 @@ export function Header({
           )}
         </button>
 
-        <button
-          onClick={onOpenWallet}
-          className="rounded-lg border border-border bg-secondary/60 px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors inline-flex items-center gap-2"
-        >
-          <Wallet size={14} className="text-primary" />
-          <span className="font-mono">${walletTotal.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
-        </button>
+        {isConnected ? (
+          <button
+            onClick={onOpenWallet}
+            className="rounded-lg border border-border bg-secondary/60 px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors inline-flex items-center gap-2"
+          >
+            <Wallet size={14} className="text-primary" />
+            <span className="font-mono">${walletTotal.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+          </button>
+        ) : null}
+
+        <PolyPlotConnectButton compact />
       </div>
     </header>
   );

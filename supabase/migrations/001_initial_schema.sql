@@ -1,8 +1,8 @@
 -- PolyPlot schema v1 (Postgres)
-create extension if not exists "uuid-ossp";
+create extension if not exists "pgcrypto";
 
 create table if not exists users (
-  user_id uuid primary key default uuid_generate_v4(),
+  user_id uuid primary key default gen_random_uuid(),
   handle text unique not null,
   display_name text,
   avatar_url text,
@@ -23,7 +23,7 @@ create table if not exists venues (
 );
 
 create table if not exists venue_accounts (
-  venue_account_id uuid primary key default uuid_generate_v4(),
+  venue_account_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   venue_id text not null references venues(venue_id),
   external_account_ref text not null,
@@ -36,7 +36,7 @@ create table if not exists venue_accounts (
 );
 
 create table if not exists tax_categories (
-  tax_category_id uuid primary key default uuid_generate_v4(),
+  tax_category_id uuid primary key default gen_random_uuid(),
   level int not null,
   name text not null,
   slug text unique not null,
@@ -45,7 +45,7 @@ create table if not exists tax_categories (
 );
 
 create table if not exists venue_taxonomy_map (
-  map_id uuid primary key default uuid_generate_v4(),
+  map_id uuid primary key default gen_random_uuid(),
   venue_id text not null references venues(venue_id),
   venue_category_raw text not null,
   venue_subcategory_raw text,
@@ -57,7 +57,7 @@ create table if not exists venue_taxonomy_map (
 );
 
 create table if not exists markets (
-  market_id uuid primary key default uuid_generate_v4(),
+  market_id uuid primary key default gen_random_uuid(),
   venue_id text not null references venues(venue_id),
   venue_market_id text not null,
   question text not null,
@@ -78,7 +78,7 @@ create table if not exists markets (
 );
 
 create table if not exists market_mapping (
-  mapping_id uuid primary key default uuid_generate_v4(),
+  mapping_id uuid primary key default gen_random_uuid(),
   canonical_event_key text not null,
   market_id_a uuid not null references markets(market_id),
   market_id_b uuid not null references markets(market_id),
@@ -88,7 +88,7 @@ create table if not exists market_mapping (
 );
 
 create table if not exists market_prices (
-  market_price_id uuid primary key default uuid_generate_v4(),
+  market_price_id uuid primary key default gen_random_uuid(),
   market_id uuid not null references markets(market_id),
   ts timestamptz not null,
   mid_prob double precision,
@@ -103,7 +103,7 @@ create table if not exists market_prices (
 create index if not exists idx_market_prices_market_ts on market_prices(market_id, ts desc);
 
 create table if not exists trades (
-  trade_id uuid primary key default uuid_generate_v4(),
+  trade_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   venue_id text not null references venues(venue_id),
   market_id uuid not null references markets(market_id),
@@ -121,8 +121,8 @@ create table if not exists trades (
 create index if not exists idx_trades_user_ts on trades(user_id, ts desc);
 
 create table if not exists positions (
-  position_id uuid primary key default uuid_generate_v4(),
-  cycle_id uuid not null default uuid_generate_v4(),
+  position_id uuid primary key default gen_random_uuid(),
+  cycle_id uuid not null default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   venue_id text not null references venues(venue_id),
   market_id uuid not null references markets(market_id),
@@ -146,7 +146,7 @@ create table if not exists positions (
 create index if not exists idx_positions_user_status on positions(user_id, status);
 
 create table if not exists venue_balances (
-  venue_balance_id uuid primary key default uuid_generate_v4(),
+  venue_balance_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   venue_id text not null references venues(venue_id),
   ts timestamptz not null default now(),
@@ -160,7 +160,7 @@ create table if not exists venue_balances (
 create index if not exists idx_venue_balances_user_ts on venue_balances(user_id, ts desc);
 
 create table if not exists resolutions (
-  resolution_id uuid primary key default uuid_generate_v4(),
+  resolution_id uuid primary key default gen_random_uuid(),
   market_id uuid not null unique references markets(market_id),
   resolved_at timestamptz not null,
   outcome text not null,
@@ -169,7 +169,7 @@ create table if not exists resolutions (
 );
 
 create table if not exists decisions (
-  decision_id uuid primary key default uuid_generate_v4(),
+  decision_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   venue_id text not null references venues(venue_id),
   market_id uuid not null references markets(market_id),
@@ -198,7 +198,7 @@ create table if not exists decisions (
 create index if not exists idx_decisions_user_entry_ts on decisions(user_id, entry_ts desc);
 
 create table if not exists rating_events (
-  rating_event_id uuid primary key default uuid_generate_v4(),
+  rating_event_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   decision_id uuid references decisions(decision_id),
   ts timestamptz not null,
@@ -222,7 +222,7 @@ create table if not exists user_rating_state (
 );
 
 create table if not exists user_metric_snapshots (
-  snapshot_id uuid primary key default uuid_generate_v4(),
+  snapshot_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   timeframe_key text not null,
   venue_scope text not null,
@@ -240,12 +240,13 @@ create table if not exists user_metric_snapshots (
   win_streak_current integer,
   win_streak_best integer,
   active_markets_count integer,
-  updated_at timestamptz not null default now(),
-  unique (user_id, timeframe_key, venue_scope, coalesce(custom_key,''))
+  updated_at timestamptz not null default now()
 );
+create unique index if not exists idx_user_metric_snapshots_unique
+  on user_metric_snapshots (user_id, timeframe_key, venue_scope, coalesce(custom_key,''));
 
 create table if not exists user_category_snapshots (
-  snapshot_id uuid primary key default uuid_generate_v4(),
+  snapshot_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   timeframe_key text not null,
   venue_scope text not null,
@@ -264,7 +265,7 @@ create table if not exists user_category_snapshots (
 );
 
 create table if not exists user_probability_band_snapshots (
-  snapshot_id uuid primary key default uuid_generate_v4(),
+  snapshot_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   timeframe_key text not null,
   venue_scope text not null,
@@ -279,12 +280,13 @@ create table if not exists user_probability_band_snapshots (
   log_loss_avg double precision,
   calibration_error double precision,
   edge_contribution double precision,
-  updated_at timestamptz not null default now(),
-  unique (user_id, timeframe_key, venue_scope, coalesce(category,''), probability_band, coalesce(custom_key,''))
+  updated_at timestamptz not null default now()
 );
+create unique index if not exists idx_user_probability_band_snapshots_unique
+  on user_probability_band_snapshots (user_id, timeframe_key, venue_scope, coalesce(category,''), probability_band, coalesce(custom_key,''));
 
 create table if not exists engine_runs (
-  run_id uuid primary key default uuid_generate_v4(),
+  run_id uuid primary key default gen_random_uuid(),
   engine_name text not null,
   run_type text not null,
   ts_start timestamptz not null,
@@ -295,7 +297,7 @@ create table if not exists engine_runs (
 );
 
 create table if not exists engine_signals (
-  signal_id uuid primary key default uuid_generate_v4(),
+  signal_id uuid primary key default gen_random_uuid(),
   run_id uuid references engine_runs(run_id),
   engine_name text not null,
   signal_type text not null,
@@ -308,7 +310,7 @@ create table if not exists engine_signals (
 );
 
 create table if not exists opportunity_rankings (
-  opp_id uuid primary key default uuid_generate_v4(),
+  opp_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   market_id uuid not null references markets(market_id),
   ts timestamptz not null default now(),
@@ -320,7 +322,7 @@ create table if not exists opportunity_rankings (
 );
 
 create table if not exists anomaly_events (
-  anomaly_id uuid primary key default uuid_generate_v4(),
+  anomaly_id uuid primary key default gen_random_uuid(),
   market_id uuid not null references markets(market_id),
   ts timestamptz not null default now(),
   anomaly_type text not null,
@@ -331,7 +333,7 @@ create table if not exists anomaly_events (
 );
 
 create table if not exists arbitrage_opportunities (
-  arb_id uuid primary key default uuid_generate_v4(),
+  arb_id uuid primary key default gen_random_uuid(),
   mapping_id uuid references market_mapping(mapping_id),
   ts timestamptz not null default now(),
   market_id_polymarket uuid references markets(market_id),
@@ -348,7 +350,7 @@ create table if not exists arbitrage_opportunities (
 );
 
 create table if not exists execution_plans (
-  plan_id uuid primary key default uuid_generate_v4(),
+  plan_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   mapping_id uuid references market_mapping(mapping_id),
   ts_created timestamptz not null default now(),
@@ -363,7 +365,7 @@ create table if not exists execution_plans (
 );
 
 create table if not exists execution_events (
-  exec_event_id uuid primary key default uuid_generate_v4(),
+  exec_event_id uuid primary key default gen_random_uuid(),
   plan_id uuid not null references execution_plans(plan_id),
   ts timestamptz not null default now(),
   step_index int not null,
@@ -374,7 +376,7 @@ create table if not exists execution_events (
 );
 
 create table if not exists achievements (
-  achievement_id uuid primary key default uuid_generate_v4(),
+  achievement_id uuid primary key default gen_random_uuid(),
   name text not null,
   family text not null,
   tier text not null,
@@ -396,7 +398,7 @@ create table if not exists user_achievements (
 );
 
 create table if not exists access_codes (
-  code_id uuid primary key default uuid_generate_v4(),
+  code_id uuid primary key default gen_random_uuid(),
   code_hash text unique not null,
   access_duration_days int,
   is_single_use boolean not null default true,
@@ -406,7 +408,7 @@ create table if not exists access_codes (
 );
 
 create table if not exists access_grants (
-  grant_id uuid primary key default uuid_generate_v4(),
+  grant_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   granted_by text not null default 'code',
   starts_at timestamptz not null default now(),
@@ -416,7 +418,7 @@ create table if not exists access_grants (
 create index if not exists idx_access_grants_user on access_grants(user_id, expires_at);
 
 create table if not exists token_gate_rules (
-  rule_id uuid primary key default uuid_generate_v4(),
+  rule_id uuid primary key default gen_random_uuid(),
   chain_id int not null,
   contract_address text not null,
   rule_type text not null,
@@ -425,7 +427,7 @@ create table if not exists token_gate_rules (
 );
 
 create table if not exists token_gate_checks (
-  check_id uuid primary key default uuid_generate_v4(),
+  check_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(user_id),
   rule_id uuid not null references token_gate_rules(rule_id),
   checked_at timestamptz not null default now(),

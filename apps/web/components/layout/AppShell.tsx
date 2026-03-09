@@ -1,16 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 
 import { AchievementUnlockListener } from '@/components/achievements/AchievementUnlockListener';
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 import { NotificationPanel, type NotificationItem } from '@/components/panels/NotificationPanel';
 import { WalletPanel } from '@/components/panels/WalletPanel';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { useNFTGate } from '@/lib/hooks/use-nft-gate';
+import { useVenueAccounts } from '@/lib/hooks/use-venue-accounts';
 import { useWalletSummary } from '@/lib/hooks/use-wallet';
 
-import { AccessGate } from './AccessGate';
 import { CommandPalette } from './CommandPalette';
 import { GlobalFilterBar } from './GlobalFilterBar';
 import { Header } from './Header';
@@ -18,12 +19,6 @@ import { KeyboardShortcuts } from './KeyboardShortcuts';
 import { Sidebar } from './Sidebar';
 
 async function loadNotifications(): Promise<NotificationItem[]> {
-  try {
-    await fetch('/api/dashboard/summary', { cache: 'no-store' });
-  } catch {
-    // Ignore dashboard endpoint failures for panel rendering.
-  }
-
   const now = Date.now();
   return [
     {
@@ -54,21 +49,25 @@ async function loadNotifications(): Promise<NotificationItem[]> {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const { status } = useSession();
+  const { hasAccess } = useNFTGate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [onboardingForcedOpen, setOnboardingForcedOpen] = useState(false);
+
   const walletSummary = useWalletSummary();
-  const venueAccounts = useQuery({
-    queryKey: ['venue-accounts'],
-    queryFn: async () => {
-      const response = await fetch('/api/venues/accounts');
-      if (!response.ok) throw new Error('Failed to fetch venue accounts');
-      return response.json() as Promise<Array<unknown>>;
-    },
-  });
+
+  useEffect(() => {
+    if (status === 'authenticated' && hasAccess) {
+      fetch('/api/users/ensure', { method: 'POST' }).catch(() => undefined);
+    }
+  }, [hasAccess, status]);
+
+  const venueAccounts = useVenueAccounts();
 
   useEffect(() => {
     let active = true;
@@ -98,16 +97,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('polyplot:close-panels', closeAll);
   }, []);
 
+  useEffect(() => {
+    const openOnboarding = () => {
+      setOnboardingDismissed(false);
+      setOnboardingForcedOpen(true);
+    };
+    window.addEventListener('polyplot:open-onboarding', openOnboarding);
+    return () => window.removeEventListener('polyplot:open-onboarding', openOnboarding);
+  }, []);
+
   const unreadCount = useMemo(() => notifications.filter((n) => n.unread).length, [notifications]);
-  const showOnboarding =
+  const shouldAutoShowOnboarding =
+    status === 'authenticated' &&
+    hasAccess &&
     !onboardingDismissed &&
     !venueAccounts.isLoading &&
     !venueAccounts.isError &&
-    Array.isArray(venueAccounts.data) &&
-    venueAccounts.data.length === 0;
+    !venueAccounts.hasConnectedVenue;
+  const showOnboarding = onboardingForcedOpen || shouldAutoShowOnboarding;
 
   return (
-    <AccessGate>
+    <>
       <div className="min-h-screen bg-background text-foreground flex">
         <KeyboardShortcuts />
         <CommandPalette />
@@ -145,12 +155,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <WalletPanel isOpen={walletOpen} onClose={() => setWalletOpen(false)} />
       <OnboardingModal
         isOpen={showOnboarding}
-        onClose={() => setOnboardingDismissed(true)}
+        onClose={() => {
+          setOnboardingDismissed(true);
+          setOnboardingForcedOpen(false);
+        }}
         onCompleted={() => {
           venueAccounts.refetch();
           walletSummary.refetch();
+          setOnboardingForcedOpen(false);
+          setOnboardingDismissed(true);
         }}
       />
-    </AccessGate>
+    </>
   );
 }

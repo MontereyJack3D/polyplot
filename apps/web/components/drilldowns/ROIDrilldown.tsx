@@ -22,7 +22,7 @@ export function ROIDrilldown({ timeframe, venue }: ROIDrilldownProps) {
         {query.data.levels[0]?.rows.map((row) => (
           <Link
             key={row.label}
-            href={`/profile#category-${row.label.toLowerCase().replace(/\s+/g, '-')}`}
+            href={`/app/profile#category-${row.label.toLowerCase().replace(/\s+/g, '-')}`}
             className="block rounded-lg border border-border bg-secondary/40 p-3 hover:bg-secondary/70 transition-colors"
           >
             <div className="flex items-center justify-between text-sm">

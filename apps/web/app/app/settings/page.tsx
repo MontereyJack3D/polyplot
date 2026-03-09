@@ -1,3 +1,4 @@
+import { GatedContent } from '@/components/layout/GatedContent';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 
 export const metadata = {
@@ -5,5 +6,9 @@ export const metadata = {
 };
 
 export default function SettingsRoutePage() {
-  return <SettingsPage />;
+  return (
+    <GatedContent>
+      <SettingsPage />
+    </GatedContent>
+  );
 }

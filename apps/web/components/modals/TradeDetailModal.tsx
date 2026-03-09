@@ -41,7 +41,7 @@ export function TradeDetailModal({ isOpen, onClose, onOpenReplay, trade }: Trade
 
           <div className="flex gap-2">
             <button onClick={onOpenReplay} className="flex-1 rounded-lg bg-primary text-primary-foreground py-2.5 text-sm font-medium">Trade Replay</button>
-            <a href={`/markets?marketId=${trade.marketId}`} className="flex-1 rounded-lg border border-border bg-secondary py-2.5 text-sm inline-flex items-center justify-center gap-1.5">
+            <a href={`/app/markets?marketId=${trade.marketId}`} className="flex-1 rounded-lg border border-border bg-secondary py-2.5 text-sm inline-flex items-center justify-center gap-1.5">
               View Market <ExternalLink size={14} />
             </a>
           </div>

@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { requireSessionUser } from '@/lib/auth/session-user';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let sessionUser: Awaited<ReturnType<typeof requireSessionUser>>;
+  try {
+    sessionUser = await requireSessionUser();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = sessionUser.user.user_id;
 
   const { searchParams } = new URL(request.url);
   const timeframe = searchParams.get('timeframe') || 'ALL';
@@ -16,13 +20,13 @@ export async function GET(request: NextRequest) {
   const { data: ratingState } = await supabase
     .from('user_rating_state')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .single();
 
   const { data: snapshot } = await supabase
     .from('user_metric_snapshots')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('timeframe_key', timeframe)
     .eq('venue_scope', venue)
     .order('updated_at', { ascending: false })

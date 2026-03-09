@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { requireSessionUser } from '@/lib/auth/session-user';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 function monthKey(date: Date): string {
@@ -15,10 +16,13 @@ function weekKey(date: Date): string {
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let sessionUser: Awaited<ReturnType<typeof requireSessionUser>>;
+  try {
+    sessionUser = await requireSessionUser();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = sessionUser.user.user_id;
 
   const timeframe = new URL(request.url).searchParams.get('timeframe') || 'ALL';
   const mode: 'week' | 'month' = timeframe === 'ALL' || timeframe === '1Y' || timeframe === 'YTD' ? 'month' : 'week';
@@ -26,7 +30,7 @@ export async function GET(request: NextRequest) {
   const { data } = await supabase
     .from('rating_events')
     .select('ts, r_after')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('ts', { ascending: true })
     .limit(1000);
 

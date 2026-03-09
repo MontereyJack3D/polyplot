@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import type { MarketIntelligenceResponse, ProbabilityBand, VenueId } from '@polyplot/core';
 
+import { findUserByWalletAddress, getSessionWalletAddress } from '@/lib/auth/session-user';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 function probabilityBand(prob: number): ProbabilityBand {
@@ -18,12 +19,9 @@ export async function GET(
 ) {
   const { marketId } = await params;
   const supabase = await createServerSupabaseClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const walletAddress = await getSessionWalletAddress();
+  const sessionUser = walletAddress ? await findUserByWalletAddress(walletAddress) : null;
+  const userId = sessionUser?.user_id ?? null;
 
   const { data: market } = await supabase
     .from('markets')
@@ -33,7 +31,7 @@ export async function GET(
 
   if (!market) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const [{ data: prices }, { data: signals }, { data: position }, { data: related }, { data: snapshots }, { data: mapping }] =
+  const [{ data: prices }, { data: signals }, { data: related }, { data: mapping }] =
     await Promise.all([
       supabase
         .from('market_prices')
@@ -49,28 +47,11 @@ export async function GET(
         .order('ts', { ascending: false })
         .limit(6),
       supabase
-        .from('positions')
-        .select('venue_id,position_side,avg_entry_prob,last_mark_prob,unrealized_pnl,status')
-        .eq('user_id', user.id)
-        .eq('market_id', marketId)
-        .in('status', ['open', 'resolved'])
-        .order('opened_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
         .from('markets')
         .select('market_id,question')
         .eq('category_raw', market.category_raw)
         .neq('market_id', marketId)
         .limit(5),
-      supabase
-        .from('user_category_snapshots')
-        .select('edge_contribution,win_rate,trade_count,roi')
-        .eq('user_id', user.id)
-        .eq('category', market.category_raw ?? '')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
       supabase
         .from('market_mapping')
         .select('market_id_a,market_id_b,markets_a:markets!market_mapping_market_id_a_fkey(market_id,venue_id),markets_b:markets!market_mapping_market_id_b_fkey(market_id,venue_id)')
@@ -78,6 +59,29 @@ export async function GET(
         .limit(1)
         .maybeSingle(),
     ]);
+
+  const { data: position } = userId
+    ? await supabase
+        .from('positions')
+        .select('venue_id,position_side,avg_entry_prob,last_mark_prob,unrealized_pnl,status')
+        .eq('user_id', userId)
+        .eq('market_id', marketId)
+        .in('status', ['open', 'resolved'])
+        .order('opened_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+
+  const { data: snapshots } = userId
+    ? await supabase
+        .from('user_category_snapshots')
+        .select('edge_contribution,win_rate,trade_count,roi')
+        .eq('user_id', userId)
+        .eq('category', market.category_raw ?? '')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
 
   const current = (prices ?? [])[0];
   const series = [...(prices ?? [])].reverse().map((p) => ({

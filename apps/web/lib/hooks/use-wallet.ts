@@ -1,8 +1,11 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 
 export function useWalletSummary() {
+  const { status } = useSession();
+
   return useQuery({
     queryKey: ['wallet-summary'],
     queryFn: async () => {
@@ -21,5 +24,6 @@ export function useWalletSummary() {
       }>;
     },
     staleTime: 60_000,
+    enabled: status === 'authenticated',
   });
 }

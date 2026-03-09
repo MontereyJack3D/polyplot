@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { requireSessionUser } from '@/lib/auth/session-user';
 import { inngest } from '@/lib/inngest/client';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
@@ -9,13 +10,13 @@ type VenueAccountRow = {
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  let sessionUser: Awaited<ReturnType<typeof requireSessionUser>>;
+  try {
+    sessionUser = await requireSessionUser();
+  } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const userId = sessionUser.user.user_id;
 
   const body = (await request.json()) as { venueId?: string };
   const venueId = body.venueId;
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
   const { data: account } = await supabase
     .from('venue_accounts')
     .select('external_account_ref')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('venue_id', venueId)
     .maybeSingle<VenueAccountRow>();
 
@@ -38,13 +39,13 @@ export async function POST(request: NextRequest) {
   await supabase
     .from('venue_accounts')
     .update({ connection_status: 'syncing' })
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('venue_id', venueId);
 
   await inngest.send({
     name: 'user/sync.requested',
     data: {
-      userId: user.id,
+      userId,
       venueId,
       walletAddress: account.external_account_ref,
     },

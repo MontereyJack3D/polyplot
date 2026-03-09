@@ -142,7 +142,7 @@ export function MarketPreviewModal({ marketId, isOpen, onClose }: MarketPreviewM
             <p className="text-xs text-muted-foreground mb-2">Related Markets</p>
             <div className="space-y-2">
               {data.relatedMarkets.length ? data.relatedMarkets.map((market) => (
-                <a key={market.marketId} href={`/markets?marketId=${market.marketId}`} className="block rounded-md border border-border bg-background/30 p-2.5 hover:border-primary/40 transition-colors">
+                <a key={market.marketId} href={`/app/markets?marketId=${market.marketId}`} className="block rounded-md border border-border bg-background/30 p-2.5 hover:border-primary/40 transition-colors">
                   <p className="text-sm line-clamp-1">{market.question}</p>
                 </a>
               )) : <p className="text-xs text-muted-foreground">No related markets found.</p>}

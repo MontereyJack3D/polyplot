@@ -55,12 +55,12 @@ export function CommandPalette() {
             </Command.Empty>
             <Command.Group heading="Pages">
               {[
-                { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-                { label: 'Profile', path: '/profile', icon: User },
-                { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
-                { label: 'Markets', path: '/markets', icon: Globe },
-                { label: 'History', path: '/history', icon: Clock },
-                { label: 'Settings', path: '/settings', icon: SettingsIcon },
+                { label: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard },
+                { label: 'Profile', path: '/app/profile', icon: User },
+                { label: 'Leaderboard', path: '/app/leaderboard', icon: Trophy },
+                { label: 'Markets', path: '/app/markets', icon: Globe },
+                { label: 'History', path: '/app/history', icon: Clock },
+                { label: 'Settings', path: '/app/settings', icon: SettingsIcon },
               ].map((item) => (
                 <Command.Item
                   key={item.path}

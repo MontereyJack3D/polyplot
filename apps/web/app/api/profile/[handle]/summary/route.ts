@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { findUserByWalletAddress, getSessionWalletAddress } from '@/lib/auth/session-user';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 const PRIVATE_FIELDS = ['pnlTotal', 'pnlRealized', 'pnl24h', 'totalBalance'] as const;
@@ -7,12 +8,12 @@ const PRIVATE_FIELDS = ['pnlTotal', 'pnlRealized', 'pnl24h', 'totalBalance'] as 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params;
   const supabase = await createServerSupabaseClient();
-
-  const {
-    data: { user: requester },
-  } = await supabase.auth.getUser();
-
-  const targetUserId = handle === 'me' ? requester?.id : undefined;
+  const walletAddress = await getSessionWalletAddress();
+  const requester = walletAddress ? await findUserByWalletAddress(walletAddress) : null;
+  const targetUserId = handle === 'me' ? requester?.user_id : undefined;
+  if (handle === 'me' && !requester?.user_id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const { data: profile } = targetUserId
     ? await supabase.from('users').select('*').eq('user_id', targetUserId).single()
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     totalBalance: null,
   };
 
-  const isOwner = requester?.id === profile.user_id;
+  const isOwner = requester?.user_id === profile.user_id;
 
   if (!isOwner && profile.privacy_mode === 'private') {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });

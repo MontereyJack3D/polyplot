@@ -25,12 +25,12 @@ export function KeyboardShortcuts() {
 
       if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         const navMap: Record<string, string> = {
-          '1': '/dashboard',
-          '2': '/profile',
-          '3': '/leaderboard',
-          '4': '/markets',
-          '5': '/history',
-          '6': '/settings',
+          '1': '/app/dashboard',
+          '2': '/app/profile',
+          '3': '/app/leaderboard',
+          '4': '/app/markets',
+          '5': '/app/history',
+          '6': '/app/settings',
         };
 
         if (navMap[e.key]) {

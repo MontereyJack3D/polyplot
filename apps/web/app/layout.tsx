@@ -44,8 +44,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
+    <html lang="en" className="dark">
+      <body className={`${inter.variable} ${jetbrainsMono.variable} bg-background text-foreground font-sans antialiased`}>
         <QueryProvider>
           {children}
           <Toaster theme="dark" richColors />

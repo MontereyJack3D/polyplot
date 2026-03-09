@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { requireSessionUser } from '@/lib/auth/session-user';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let sessionUser: Awaited<ReturnType<typeof requireSessionUser>>;
+  try {
+    sessionUser = await requireSessionUser();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = sessionUser.user.user_id;
 
   const status = new URL(request.url).searchParams.get('status') || 'open';
 
   const { data } = await supabase
     .from('positions')
     .select('*, markets(question, venue_market_id)')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('status', status)
     .order('opened_at', { ascending: false });
 

@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, ChevronLeft, ChevronRight, Clock, Globe, LayoutDashboard, Settings, Trophy, User } from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, Clock, Globe, LayoutDashboard, Lock, Settings, Trophy, User } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/profile', label: 'Profile', icon: User },
-  { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
-  { path: '/markets', label: 'Markets', icon: Globe },
-  { path: '/history', label: 'History', icon: Clock },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard, gated: true },
+  { path: '/app/profile', label: 'Profile', icon: User, gated: true },
+  { path: '/app/leaderboard', label: 'Leaderboard', icon: Trophy, gated: false },
+  { path: '/app/markets', label: 'Markets', icon: Globe, gated: false },
+  { path: '/app/history', label: 'History', icon: Clock, gated: true },
+  { path: '/app/settings', label: 'Settings', icon: Settings, gated: true },
 ];
 
 interface SidebarProps {
@@ -22,6 +23,11 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
+  const { data: session, status } = useSession();
+  const isConnected = status === 'authenticated';
+  const walletLabel = session?.user?.address
+    ? `${session.user.address.slice(0, 6)}...${session.user.address.slice(-4)}`
+    : 'Guest';
 
   return (
     <>
@@ -52,7 +58,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         </div>
 
         <nav className="px-3 py-4 space-y-1">
-          {navItems.map(({ path, label, icon: Icon }) => {
+          {navItems.map(({ path, label, icon: Icon, gated }) => {
             const active = pathname === path;
             return (
               <Link
@@ -68,17 +74,24 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               >
                 <Icon size={16} className="shrink-0" />
                 {!collapsed && <span>{label}</span>}
+                {gated && !isConnected && !collapsed ? <Lock size={10} className="text-muted-foreground/50 ml-auto" /> : null}
               </Link>
             );
           })}
         </nav>
 
         <div className="mt-auto p-3 border-t border-border">
-          <div className="rounded-lg bg-secondary/60 px-3 py-2">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('polyplot:open-onboarding'))}
+            className="w-full text-left rounded-lg bg-secondary/60 px-3 py-2 hover:bg-secondary transition-colors"
+          >
             <p className={['text-xs text-muted-foreground', collapsed ? 'hidden' : 'block'].join(' ')}>Signed in as</p>
-            <p className={['text-sm font-medium truncate', collapsed ? 'hidden' : 'block'].join(' ')}>Analyst</p>
+            <p className={['text-sm font-medium truncate', collapsed ? 'hidden' : 'block'].join(' ')}>
+              {isConnected ? walletLabel : 'Guest'}
+            </p>
             {collapsed && <User size={16} className="mx-auto text-muted-foreground" />}
-          </div>
+          </button>
         </div>
         </div>
       </aside>

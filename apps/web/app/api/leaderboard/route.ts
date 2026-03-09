@@ -18,11 +18,6 @@ function ratingToEdgeScore(r: number): number {
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const category = searchParams.get('category');

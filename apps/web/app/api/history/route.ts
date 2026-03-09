@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { requireSessionUser } from '@/lib/auth/session-user';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 const DEFAULT_LIMIT = 50;
@@ -16,11 +17,13 @@ function parseCursor(v: string | null): number {
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let sessionUser: Awaited<ReturnType<typeof requireSessionUser>>;
+  try {
+    sessionUser = await requireSessionUser();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = sessionUser.user.user_id;
 
   const { searchParams } = new URL(request.url);
   const venue = searchParams.get('venue');
@@ -37,7 +40,7 @@ export async function GET(request: NextRequest) {
       'trade_id,market_id,ts,side,direction,price_prob,quantity,fee_paid,status,markets!inner(question,category_raw,venue_id),decisions(actual_S,rating_delta_final,capture)',
       { count: 'exact' }
     )
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('ts', { ascending: false })
     .range(cursor, cursor + limit - 1);
 

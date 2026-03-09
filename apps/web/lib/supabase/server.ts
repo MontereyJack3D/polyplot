@@ -1,6 +1,9 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { getServerSession } from 'next-auth';
+
+import { authOptions } from '@/lib/auth/next-auth-options';
 
 type CookieToSet = {
   name: string;
@@ -11,9 +14,9 @@ type CookieToSet = {
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  const client = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
       cookies: {
         getAll() {
@@ -29,6 +32,52 @@ export async function createServerSupabaseClient() {
       },
     }
   );
+
+  (client.auth as any).getUser = async () => {
+    try {
+      const session = await getServerSession(authOptions);
+      const address = session?.user?.address?.toLowerCase();
+
+      if (!address) {
+        return { data: { user: null }, error: null };
+      }
+
+      const admin = createAdminClient();
+      const { data: userByHandle } = await admin
+        .from('users')
+        .select('user_id')
+        .eq('handle', address)
+        .maybeSingle();
+
+      let userId = userByHandle?.user_id ?? null;
+
+      if (!userId) {
+        const { data: userBySettings } = await admin
+          .from('users')
+          .select('user_id')
+          .contains('settings_json', { walletAddress: address })
+          .maybeSingle();
+        userId = userBySettings?.user_id ?? null;
+      }
+
+      if (!userId) {
+        return { data: { user: null }, error: null };
+      }
+
+      return {
+        data: {
+          user: {
+            id: userId,
+          },
+        },
+        error: null,
+      };
+    } catch {
+      return { data: { user: null }, error: null };
+    }
+  };
+
+  return client;
 }
 
 // Admin client for background jobs (uses service role key, bypasses RLS)

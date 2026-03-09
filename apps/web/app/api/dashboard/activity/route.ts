@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import type { ActivityItem, ActivityResponse } from '@polyplot/core';
 
+import { requireSessionUser } from '@/lib/auth/session-user';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let sessionUser: Awaited<ReturnType<typeof requireSessionUser>>;
+  try {
+    sessionUser = await requireSessionUser();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = sessionUser.user.user_id;
 
   const limit = Number(new URL(request.url).searchParams.get('limit') || '20');
 
@@ -17,19 +21,19 @@ export async function GET(request: NextRequest) {
     supabase
       .from('decisions')
       .select('decision_id, market_id, resolved_ts, entry_ts, actual_S, rating_delta_final')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('resolved_ts', { ascending: false })
       .limit(limit),
     supabase
       .from('trades')
       .select('trade_id, market_id, ts, quantity, price_prob, direction')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('ts', { ascending: false })
       .limit(limit),
     supabase
       .from('user_achievements')
       .select('achievement_id, unlocked_at, achievements(name)')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('status', 'unlocked')
       .order('unlocked_at', { ascending: false })
       .limit(limit),

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { findUserByWalletAddress, getSessionWalletAddress } from '@/lib/auth/session-user';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 const PAGE_SIZE = 30;
@@ -11,11 +12,9 @@ function parseCursor(value: string | null): number {
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const walletAddress = await getSessionWalletAddress();
+  const sessionUser = walletAddress ? await findUserByWalletAddress(walletAddress) : null;
+  const userId = sessionUser?.user_id ?? null;
 
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get('q') ?? '').trim();
@@ -26,13 +25,11 @@ export async function GET(request: NextRequest) {
   const watchlistOnly = searchParams.get('watchlist') === '1';
   const cursor = parseCursor(searchParams.get('cursor'));
 
-  const { data: userRow } = await supabase
-    .from('users')
-    .select('settings_json')
-    .eq('user_id', user.id)
-    .single();
-
-  const watchlistIds = ((userRow?.settings_json as { watchlist?: string[] } | null)?.watchlist ?? []).filter(Boolean);
+  let watchlistIds: string[] = [];
+  if (userId) {
+    const { data: userRow } = await supabase.from('users').select('settings_json').eq('user_id', userId).single();
+    watchlistIds = ((userRow?.settings_json as { watchlist?: string[] } | null)?.watchlist ?? []).filter(Boolean);
+  }
 
   let marketsQuery = supabase
     .from('markets')
@@ -53,6 +50,9 @@ export async function GET(request: NextRequest) {
   }
 
   if (watchlistOnly) {
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     if (watchlistIds.length === 0) {
       return NextResponse.json({ items: [], nextCursor: null, watchlistIds: [] });
     }

@@ -1,0 +1,7 @@
+.git
+node_modules
+.turbo
+apps/web/.next
+apps/web/node_modules
+**/.DS_Store
+*.log

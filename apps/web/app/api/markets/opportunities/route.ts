@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { requireSessionUser } from '@/lib/auth/session-user';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 interface OpportunityRow {
@@ -36,16 +37,18 @@ interface MarketPriceRow {
 
 export async function GET() {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let sessionUser: Awaited<ReturnType<typeof requireSessionUser>>;
+  try {
+    sessionUser = await requireSessionUser();
+  } catch {
+    return NextResponse.json({ items: [] });
+  }
+  const userId = sessionUser.user.user_id;
 
   const { data, error } = await supabase
     .from('opportunity_rankings')
     .select('market_id,opportunity_score,components_json,explanation_text,recommended_action,markets!inner(market_id,question,category_raw,end_time,venue_id,status)')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('opportunity_score', { ascending: false })
     .limit(20);
 
