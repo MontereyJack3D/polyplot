@@ -7,16 +7,47 @@ function parseSiweMessage(raw: unknown): SiweMessage | null {
   if (!raw) return null;
 
   if (typeof raw === 'string') {
+    const decodeSafe = (value: string) => {
+      try {
+        return decodeURIComponent(value);
+      } catch {
+        return value;
+      }
+    };
+
     const trimmed = raw.trim();
     if (!trimmed) return null;
-    try {
-      if (trimmed.startsWith('{')) {
-        return new SiweMessage(JSON.parse(trimmed));
+
+    const candidates = [
+      trimmed,
+      decodeSafe(trimmed),
+      decodeSafe(decodeSafe(trimmed)),
+    ];
+
+    for (const candidate of candidates) {
+      const text = candidate.trim();
+      if (!text) continue;
+
+      try {
+        if (text.startsWith('{')) {
+          return new SiweMessage(JSON.parse(text));
+        }
+        if (text.startsWith('"')) {
+          const parsed = JSON.parse(text);
+          if (typeof parsed === 'string') {
+            if (parsed.trim().startsWith('{')) {
+              return new SiweMessage(JSON.parse(parsed));
+            }
+            return new SiweMessage(parsed);
+          }
+        }
+        return new SiweMessage(text);
+      } catch {
+        continue;
       }
-      return new SiweMessage(trimmed);
-    } catch {
-      return null;
     }
+
+    return null;
   }
 
   if (typeof raw === 'object') {
@@ -42,7 +73,13 @@ export const authOptions: NextAuthOptions = {
         try {
           const siwe = parseSiweMessage(credentials?.message);
           if (!siwe) {
-            console.error('SIWE auth: invalid message payload');
+            console.error('SIWE auth: invalid message payload', {
+              messageType: typeof credentials?.message,
+              preview:
+                typeof credentials?.message === 'string'
+                  ? credentials.message.slice(0, 120)
+                  : null,
+            });
             return null;
           }
           if (!siwe.address) {
