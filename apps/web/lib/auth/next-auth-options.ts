@@ -11,17 +11,34 @@ function decodeSafe(value: string): string {
   }
 }
 
-function buildMessageCandidates(raw: string): string[] {
-  const trimmed = raw.trim();
-  if (!trimmed) return [];
-  return [trimmed, decodeSafe(trimmed), decodeSafe(decodeSafe(trimmed))];
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function buildRawMessageCandidates(raw: string): string[] {
+  const decodedOnce = decodeSafe(raw);
+  const decodedTwice = decodeSafe(decodedOnce);
+  const unescapedNewlines = raw.replace(/\\n/g, '\n');
+  const decodedUnescapedNewlines = decodedOnce.replace(/\\n/g, '\n');
+
+  return unique([
+    raw,
+    decodedOnce,
+    decodedTwice,
+    unescapedNewlines,
+    decodedUnescapedNewlines,
+    raw.replace(/\r\n/g, '\n'),
+    decodedOnce.replace(/\r\n/g, '\n'),
+    raw.trim(),
+    decodedOnce.trim(),
+  ]);
 }
 
 function parseSiweMessage(raw: unknown): SiweMessage | null {
   if (!raw) return null;
 
   if (typeof raw === 'string') {
-    const candidates = buildMessageCandidates(raw);
+    const candidates = buildRawMessageCandidates(raw).map((value) => value.trim());
 
     for (const candidate of candidates) {
       const text = candidate.trim();
@@ -103,7 +120,7 @@ export const authOptions: NextAuthOptions = {
 
           // Path B: plain signed message fallback (some wallet kits send non-SIWE text).
           if (typeof credentials?.message === 'string') {
-            const candidates = buildMessageCandidates(credentials.message);
+            const candidates = buildRawMessageCandidates(credentials.message);
             for (const candidate of candidates) {
               const addressInMessage = candidate.match(/0x[a-fA-F0-9]{40}/)?.[0]?.toLowerCase();
               if (!addressInMessage) continue;
