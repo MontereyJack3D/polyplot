@@ -5,6 +5,11 @@ import { requireSessionUser } from '@/lib/auth/session-user';
 import { inngest } from '@/lib/inngest/client';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
+const VENUE_BOOTSTRAP: Record<'polymarket' | 'kalshi', { name: string; brandColor: string; supportsOrderbook: boolean }> = {
+  polymarket: { name: 'Polymarket', brandColor: '#00d4aa', supportsOrderbook: true },
+  kalshi: { name: 'Kalshi', brandColor: '#00b389', supportsOrderbook: false },
+};
+
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
   let sessionUser: Awaited<ReturnType<typeof requireSessionUser>>;
@@ -25,12 +30,31 @@ export async function POST(request: NextRequest) {
   if (!body.venueId) {
     return NextResponse.json({ error: 'Missing venueId' }, { status: 400 });
   }
+  if (!VENUE_BOOTSTRAP[body.venueId]) {
+    return NextResponse.json({ error: 'Unsupported venueId' }, { status: 400 });
+  }
 
   const fallbackWallet = sessionUser.walletAddress.toLowerCase();
   const accountRef = (body.externalAccountRef || fallbackWallet).toLowerCase();
 
   if (!isAddress(accountRef)) {
     return NextResponse.json({ error: 'Invalid wallet address' }, { status: 400 });
+  }
+
+  const venueMeta = VENUE_BOOTSTRAP[body.venueId];
+  const { error: venueError } = await supabase.from('venues').upsert(
+    {
+      venue_id: body.venueId,
+      name: venueMeta.name,
+      brand_color: venueMeta.brandColor,
+      supports_trading: true,
+      supports_orderbook: venueMeta.supportsOrderbook,
+      fee_model_json: { maker_bps: 0, taker_bps: 0 },
+    },
+    { onConflict: 'venue_id' }
+  );
+  if (venueError) {
+    return NextResponse.json({ error: venueError.message }, { status: 500 });
   }
 
   const { error } = await supabase.from('venue_accounts').upsert(
